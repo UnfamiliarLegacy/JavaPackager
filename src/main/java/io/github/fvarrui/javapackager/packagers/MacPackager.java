@@ -13,6 +13,7 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,6 +35,7 @@ public class MacPackager extends Packager {
 	private File javaFolder;
 	private File macOSFolder;
 	private File jreBundleFolder;
+	private File delegatedLauncher;
 	
 	public MacPackager() {		
 		super();
@@ -146,7 +148,30 @@ public class MacPackager extends Packager {
 		}
 		
 		executable.setExecutable(true, false);
+
+		if (bundleJre && !administratorRequired) {
+			wrapLauncherWithBundledJreGuard();
+		}
+
 		Logger.info("Startup script file created in " + executable.getAbsolutePath());
+	}
+
+	/**
+	 * Wraps the native launcher so bundled applications always use their embedded
+	 * runtime. LSEnvironment is not consistently applied by macOS, particularly
+	 * when an app is started outside LaunchServices. Without this guard the native
+	 * launcher can silently fall back to an arbitrary system JVM.
+	 */
+	private void wrapLauncherWithBundledJreGuard() throws Exception {
+		File launcher = executable;
+		delegatedLauncher = new File(macOSFolder, launcher.getName() + ".bin");
+
+		Files.move(launcher.toPath(), delegatedLauncher.toPath(), StandardCopyOption.REPLACE_EXISTING);
+		delegatedLauncher.setExecutable(true, false);
+
+		executable = launcher;
+		FileUtils.copyResourceToFile("/mac/bundledJreLauncher", executable);
+		executable.setExecutable(true, false);
 	}
 
 	private void processClasspath() {
