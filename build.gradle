@@ -63,8 +63,12 @@ dependencies {
 	mavenEmbedder 'org.apache.maven.wagon:wagon-provider-api:3.4.1'
 }
 
-group = 'io.github.fvarrui'
-version = '1.7.7'
+def isJitPackBuild = System.getenv('JITPACK') == 'true'
+def jitpackBranch = System.getenv('GIT_BRANCH')
+def jitpackVersion = providers.gradleProperty('version').getOrNull()
+def isJitPackSnapshot = isJitPackBuild && jitpackBranch && jitpackVersion?.startsWith("${jitpackBranch}-")
+group = isJitPackBuild ? "${providers.gradleProperty('group').get()}.${System.getenv('ARTIFACT')}" : 'io.github.fvarrui'
+version = isJitPackSnapshot ? "${jitpackBranch}-SNAPSHOT" : (isJitPackBuild ? jitpackVersion : '1.7.7')
 description = 'Hybrid Maven/Gradle plugin to package Java applications as native Windows, Mac OS X or GNU/Linux executables and create installers for them'
 
 sourceCompatibility = JavaVersion.VERSION_1_8
